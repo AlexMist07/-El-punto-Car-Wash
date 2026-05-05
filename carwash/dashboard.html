@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Car Wash — Dashboard</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="cobro-page">
+
+  <nav class="navbar">
+    <div class="navbar-brand">🚗 El Punto Car Wash</div>
+    <div class="navbar-links">
+      <a href="cobro.html" class="nav-link">Cobro</a>
+      <a href="dashboard.html" class="nav-link activo">Dashboard</a>
+      <a href="stock.html" class="nav-link">Stock</a>
+      <button id="btn-logout" class="btn-logout">Cerrar sesión</button>
+    </div>
+  </nav>
+
+  <div class="dash-layout">
+
+    <!-- TARJETAS RESUMEN -->
+    <div class="dash-cards">
+      <div class="dash-card">
+        <span class="dash-icon">💰</span>
+        <div>
+          <p class="dash-label">Ingresos hoy</p>
+          <strong id="ingresos-hoy">$0.00</strong>
+        </div>
+      </div>
+      <div class="dash-card">
+        <span class="dash-icon">🧾</span>
+        <div>
+          <p class="dash-label">Tickets hoy</p>
+          <strong id="tickets-hoy">0</strong>
+        </div>
+      </div>
+      <div class="dash-card">
+        <span class="dash-icon">📊</span>
+        <div>
+          <p class="dash-label">Promedio por ticket</p>
+          <strong id="promedio-hoy">$0.00</strong>
+        </div>
+      </div>
+      <div class="dash-card">
+        <span class="dash-icon">🏆</span>
+        <div>
+          <p class="dash-label">Servicio más vendido</p>
+          <strong id="top-servicio">—</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- HISTORIAL Y REPORTE -->
+    <div class="dash-main">
+
+      <!-- Historial -->
+      <div class="card">
+        <div class="card-header-row">
+          <h2>🧾 Historial de tickets</h2>
+          <button id="btn-reporte" class="btn-reporte">🖨️ Imprimir reporte</button>
+        </div>
+        <div class="tabla-container">
+          <table class="tabla-tickets">
+            <thead>
+              <tr>
+                <th>Folio</th>
+                <th>Fecha y hora</th>
+                <th>Placa</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- REPORTE IMPRIMIBLE (oculto) -->
+  <div id="reporte-print" class="reporte-print">
+    <h2>🚗 El Punto Car Wash — Reporte del turno</h2>
+    <p id="reporte-fecha"></p>
+    <hr>
+    <table class="tabla-tickets">
+      <thead>
+        <tr><th>Folio</th><th>Fecha</th><th>Placa</th><th>Total</th></tr>
+      </thead>
+      <tbody id="reporte-body"></tbody>
+    </table>
+    <hr>
+    <p><strong>Total del turno: <span id="reporte-total"></span></strong></p>
+    <p>Tickets generados: <span id="reporte-count"></span></p>
+  </div>
+
+  <script type="module">
+    import { supabase } from './js/supabaseClient.js';
+
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) window.location.href = 'index.html';
+
+    document.getElementById('btn-logout').addEventListener('click', async () => {
+      await supabase.auth.signOut();
+      window.location.href = 'index.html';
+    });
+
+    // Fecha de hoy
+    const hoy = new Date();
+    const inicio = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()).toISOString();
+    const fin    = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate(), 23, 59, 59).toISOString();
+
+    // Cargar tickets de hoy
+    const { data: tickets } = await supabase
+      .from('tickets_venta')
+      .select('*')
+      .gte('fecha_hora', inicio)
+      .lte('fecha_hora', fin)
+      .order('fecha_hora', { ascending: false });
+
+    // Tarjetas resumen
+    const total = tickets.reduce((acc, t) => acc + parseFloat(t.total_final), 0);
+    const count = tickets.length;
+    document.getElementById('ingresos-hoy').textContent = '$' + total.toFixed(2);
+    document.getElementById('tickets-hoy').textContent  = count;
+    document.getElementById('promedio-hoy').textContent = count
+      ? '$' + (total / count).toFixed(2) : '$0.00';
+
+    // Servicio más vendido
+    const { data: detalles } = await supabase
+      .from('detalle_extras_ticket')
+      .select('id_extra, cat_servicios_extras(descripcion)');
+
+    if (detalles && detalles.length > 0) {
+      const conteo = {};
+      detalles.forEach(d => {
+        const nombre = d.cat_servicios_extras?.descripcion || 'Extra';
+        conteo[nombre] = (conteo[nombre] || 0) + 1;
+      });
+      const top = Object.entries(conteo).sort((a, b) => b[1] - a[1])[0];
+      document.getElementById('top-servicio').textContent = top ? top[0] : '—';
+    }
+
+    // Tabla historial
+    const tbody = document.getElementById('tabla-body');
+    tickets.forEach(t => {
+      const tr = document.createElement('tr');
+      const fecha = new Date(t.fecha_hora).toLocaleString('es-MX');
+      tr.innerHTML = `
+        <td>#${String(t.folio).padStart(4,'0')}</td>
+        <td>${fecha}</td>
+        <td>${t.placa?.toUpperCase() || '—'}</td>
+        <td class="monto">$${parseFloat(t.total_final).toFixed(2)}</td>`;
+      tbody.appendChild(tr);
+    });
+
+    // Reporte imprimible
+    document.getElementById('btn-reporte').addEventListener('click', () => {
+      const rbody = document.getElementById('reporte-body');
+      rbody.innerHTML = '';
+      tickets.forEach(t => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>#${String(t.folio).padStart(4,'0')}</td>
+          <td>${new Date(t.fecha_hora).toLocaleString('es-MX')}</td>
+          <td>${t.placa?.toUpperCase() || '—'}</td>
+          <td>$${parseFloat(t.total_final).toFixed(2)}</td>`;
+        rbody.appendChild(tr);
+      });
+      document.getElementById('reporte-fecha').textContent =
+        'Fecha: ' + hoy.toLocaleDateString('es-MX', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+      document.getElementById('reporte-total').textContent = '$' + total.toFixed(2);
+      document.getElementById('reporte-count').textContent = count;
+      window.print();
+    });
+  </script>
+
+</body>
+</html>

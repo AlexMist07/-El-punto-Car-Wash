@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Car Wash — Stock</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="cobro-page">
+
+  <nav class="navbar">
+    <div class="navbar-brand">🚗 El Punto Car Wash</div>
+    <div class="navbar-links">
+      <a href="cobro.html" class="nav-link">Cobro</a>
+      <a href="dashboard.html" class="nav-link">Dashboard</a>
+      <a href="stock.html" class="nav-link activo">Stock</a>
+      <button id="btn-logout" class="btn-logout">Cerrar sesión</button>
+    </div>
+  </nav>
+
+  <div class="stock-layout">
+    <div class="card">
+      <h2>📦 Inventario de insumos</h2>
+      <div class="tabla-container">
+        <table class="tabla-tickets">
+          <thead>
+            <tr>
+              <th>Insumo</th>
+              <th>Stock actual</th>
+              <th>Unidad</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+          <tbody id="stock-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { supabase } from './js/supabaseClient.js';
+
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) window.location.href = 'index.html';
+
+    document.getElementById('btn-logout').addEventListener('click', async () => {
+      await supabase.auth.signOut();
+      window.location.href = 'index.html';
+    });
+
+    const { data: insumos } = await supabase.from('insumos').select('*').order('nombre');
+
+    const tbody = document.getElementById('stock-body');
+    insumos.forEach(i => {
+      const bajo = parseFloat(i.stock_actual) <= parseFloat(i.stock_minimo);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${i.nombre}</td>
+        <td>${parseFloat(i.stock_actual).toLocaleString('es-MX')}</td>
+        <td>${i.unidad}</td>
+        <td><span class="badge ${bajo ? 'badge-danger' : 'badge-ok'}">${bajo ? '⚠️ Stock bajo' : '✅ OK'}</span></td>`;
+      tbody.appendChild(tr);
+    });
+  </script>
+
+</body>
+</html>

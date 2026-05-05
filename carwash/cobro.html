@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Car Wash — Cobro</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="cobro-page">
+
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <div class="navbar-brand">🚗 El Punto Car Wash</div>
+    <div class="navbar-links">
+      <a href="cobro.html" class="nav-link activo">Cobro</a>
+      <a href="dashboard.html" class="nav-link">Dashboard</a>
+      <a href="stock.html" class="nav-link">Stock</a>
+      <button id="btn-logout" class="btn-logout">Cerrar sesión</button>
+    </div>
+  </nav>
+
+  <!-- LAYOUT PRINCIPAL -->
+  <div class="cobro-layout">
+
+    <!-- COLUMNA IZQUIERDA: opciones -->
+    <div class="cobro-opciones">
+
+      <div class="card">
+        <h2>🚙 Tipo de vehículo</h2>
+        <select id="select-categoria">
+          <option value="">-- Selecciona un vehículo --</option>
+        </select>
+      </div>
+
+      <div class="card">
+        <h2>🧽 Modalidad de lavado</h2>
+        <div id="modalidades" class="botones-grupo">
+          <p class="hint">Selecciona un vehículo primero</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>✨ Servicios extra</h2>
+        <details class="extras-dropdown">
+          <summary>Ver servicios disponibles</summary>
+          <div id="extras-lista" class="extras-grid"></div>
+        </details>
+      </div>
+
+      <div class="card">
+        <h2>🔑 Placa del vehículo</h2>
+        <input type="text" id="input-placa" placeholder="Ej: ABC-123" maxlength="10">
+      </div>
+
+    </div>
+
+    <!-- COLUMNA DERECHA: resumen -->
+    <div class="cobro-resumen">
+      <div class="resumen-card">
+
+        <div class="resumen-header">
+          <h2>Resumen del ticket</h2>
+          <span id="resumen-hora" class="resumen-hora"></span>
+        </div>
+
+        <div class="resumen-body">
+          <div class="resumen-fila" id="r-vehiculo-row">
+            <span>Vehículo</span>
+            <strong id="r-vehiculo">—</strong>
+          </div>
+          <div class="resumen-fila" id="r-modalidad-row">
+            <span>Modalidad</span>
+            <strong id="r-modalidad">—</strong>
+          </div>
+          <div class="resumen-fila">
+            <span>Precio base</span>
+            <strong id="r-base">$0.00</strong>
+          </div>
+          <div class="resumen-fila">
+            <span>Placa</span>
+            <strong id="r-placa">—</strong>
+          </div>
+        </div>
+
+        <div class="resumen-extras" id="resumen-extras-section">
+          <p class="extras-titulo">Extras seleccionados</p>
+          <div id="r-extras-lista"></div>
+        </div>
+
+        <div class="resumen-total">
+          <span>TOTAL</span>
+          <strong id="total-display">$0.00</strong>
+        </div>
+
+        <button id="btn-generar" class="btn-generar">
+          🖨️ Generar Ticket
+        </button>
+
+        <button id="btn-limpiar" class="btn-limpiar">
+          🗑️ Limpiar
+        </button>
+
+      </div>
+    </div>
+
+  </div>
+
+  <script type="module">
+    import { supabase } from './js/supabaseClient.js';
+    import { Vehiculo } from './js/Vehiculo.js';
+    import { ServicioExtra } from './js/ServicioExtra.js';
+    import { Ticket } from './js/Ticket.js';
+
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) window.location.href = 'index.html';
+
+    document.getElementById('btn-logout').addEventListener('click', async () => {
+      await supabase.auth.signOut();
+      window.location.href = 'index.html';
+    });
+
+    let vehiculoActual = null;
+    let extrasSeleccionados = [];
+
+    // Hora en tiempo real
+    function actualizarHora() {
+      document.getElementById('resumen-hora').textContent =
+        new Date().toLocaleTimeString('es-MX');
+    }
+    actualizarHora();
+    setInterval(actualizarHora, 1000);
+
+    // Cargar categorías
+    const { data: categorias } = await supabase.from('cat_categorias').select('*');
+    const selectCat = document.getElementById('select-categoria');
+    categorias.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.id_categoria;
+      opt.textContent = c.nombre_tipo;
+      selectCat.appendChild(opt);
+    });
+
+    // Cargar extras
+    const { data: extras } = await supabase.from('cat_servicios_extras').select('*');
+    const extrasLista = document.getElementById('extras-lista');
+    extras.forEach(e => {
+      const div = document.createElement('div');
+      div.className = 'extra-item';
+      div.innerHTML = `
+        <label>
+          <input type="checkbox" data-id="${e.id_extra}" data-precio="${e.precio_fijo}" data-desc="${e.descripcion}">
+          <span class="extra-nombre">${e.descripcion}</span>
+          <span class="extra-precio">$${parseFloat(e.precio_fijo).toFixed(2)}</span>
+        </label>`;
+      extrasLista.appendChild(div);
+    });
+
+    // Seleccionar categoría
+    selectCat.addEventListener('change', async () => {
+      const idCat = selectCat.value;
+      if (!idCat) return;
+
+      vehiculoActual = new Vehiculo(idCat, selectCat.options[selectCat.selectedIndex].text);
+      vehiculoActual.precioBase = 0;
+      vehiculoActual.modalidad  = null;
+
+      document.getElementById('r-vehiculo').textContent = vehiculoActual.nombreTipo;
+      document.getElementById('r-modalidad').textContent = '—';
+      document.getElementById('r-base').textContent = '$0.00';
+
+      const { data: precios } = await supabase
+        .from('matriz_precios_base')
+        .select('*')
+        .eq('id_categoria', idCat);
+
+      const contenedor = document.getElementById('modalidades');
+      contenedor.innerHTML = '';
+      precios.forEach(p => {
+        const btn = document.createElement('button');
+        btn.className = 'btn-modalidad';
+        btn.innerHTML = `<span>${p.modalidad}</span><span class="modal-precio">$${parseFloat(p.monto).toFixed(2)}</span>`;
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.btn-modalidad').forEach(b => b.classList.remove('activo'));
+          btn.classList.add('activo');
+          vehiculoActual.setPrecioBase(parseFloat(p.monto), p.modalidad);
+          document.getElementById('r-modalidad').textContent = p.modalidad;
+          document.getElementById('r-base').textContent = '$' + parseFloat(p.monto).toFixed(2);
+          actualizarTotal();
+        });
+        contenedor.appendChild(btn);
+      });
+
+      actualizarTotal();
+    });
+
+    // Extras
+    document.getElementById('extras-lista').addEventListener('change', e => {
+      if (!e.target.matches('input[type=checkbox]')) return;
+      const { id, precio, desc } = e.target.dataset;
+      if (e.target.checked) {
+        extrasSeleccionados.push(new ServicioExtra(parseInt(id), desc, parseFloat(precio)));
+      } else {
+        extrasSeleccionados = extrasSeleccionados.filter(ex => ex.idExtra !== parseInt(id));
+      }
+      actualizarResumenExtras();
+      actualizarTotal();
+    });
+
+    // Placa en resumen
+    document.getElementById('input-placa').addEventListener('input', e => {
+      document.getElementById('r-placa').textContent = e.target.value.toUpperCase() || '—';
+    });
+
+    function actualizarResumenExtras() {
+      const lista = document.getElementById('r-extras-lista');
+      lista.innerHTML = '';
+      extrasSeleccionados.forEach(ex => {
+        const div = document.createElement('div');
+        div.className = 'resumen-extra-fila';
+        div.innerHTML = `<span>${ex.descripcion}</span><span>$${ex.precioFijo.toFixed(2)}</span>`;
+        lista.appendChild(div);
+      });
+      document.getElementById('resumen-extras-section').style.display =
+        extrasSeleccionados.length ? 'block' : 'none';
+    }
+
+    function actualizarTotal() {
+      if (!vehiculoActual || !vehiculoActual.precioBase) return;
+      const ticket = new Ticket(vehiculoActual, '');
+      extrasSeleccionados.forEach(ex => ticket.agregarExtra(ex));
+      document.getElementById('total-display').textContent =
+        '$' + ticket.calcularTotal().toFixed(2);
+    }
+
+    // Limpiar
+    document.getElementById('btn-limpiar').addEventListener('click', () => {
+      selectCat.value = '';
+      document.getElementById('modalidades').innerHTML = '<p class="hint">Selecciona un vehículo primero</p>';
+      document.getElementById('input-placa').value = '';
+      document.querySelectorAll('#extras-lista input[type=checkbox]').forEach(c => c.checked = false);
+      vehiculoActual = null;
+      extrasSeleccionados = [];
+      document.getElementById('r-vehiculo').textContent = '—';
+      document.getElementById('r-modalidad').textContent = '—';
+      document.getElementById('r-base').textContent = '$0.00';
+      document.getElementById('r-placa').textContent = '—';
+      document.getElementById('r-extras-lista').innerHTML = '';
+      document.getElementById('resumen-extras-section').style.display = 'none';
+      document.getElementById('total-display').textContent = '$0.00';
+    });
+
+    // Generar ticket
+    document.getElementById('btn-generar').addEventListener('click', async () => {
+      const placa = document.getElementById('input-placa').value.trim();
+      if (!vehiculoActual || !vehiculoActual.precioBase) return alert('Selecciona vehículo y modalidad');
+      if (!placa) return alert('Ingresa la placa del vehículo');
+
+      const ticket = new Ticket(vehiculoActual, placa);
+      extrasSeleccionados.forEach(ex => ticket.agregarExtra(ex));
+
+      try {
+        const resultado = await ticket.guardarEnSupabase(supabase);
+        localStorage.setItem('ultimo_ticket', JSON.stringify({
+          folio:     resultado.folio,
+          fecha:     resultado.fecha_hora,
+          placa,
+          vehiculo:  vehiculoActual.nombreTipo,
+          modalidad: vehiculoActual.modalidad,
+          precioBase: vehiculoActual.precioBase,
+          extras:    extrasSeleccionados,
+          total:     ticket.calcularTotal()
+        }));
+        window.location.href = 'ticket.html';
+      } catch (err) {
+        alert('Error al guardar: ' + err.message);
+      }
+    });
+  </script>
+
+</body>
+</html>
