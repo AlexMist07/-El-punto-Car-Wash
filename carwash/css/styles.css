@@ -126,6 +126,36 @@ button:hover { background: var(--accent2); }
 
 .error-msg { color: var(--danger); margin-top: 12px; font-size: 13px; min-height: 20px; }
 
+.login-separador {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.btn-toggle {
+  width: auto;
+  padding: 4px 12px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 6px;
+}
+
+.btn-toggle:hover { background: var(--surface2); }
+
+.success-msg {
+  color: var(--success);
+  margin-top: 12px;
+  font-size: 13px;
+  min-height: 20px;
+}
+
 /* ─── LAYOUT COBRO ─── */
 .cobro-page { min-height: 100vh; }
 
@@ -163,7 +193,6 @@ button:hover { background: var(--accent2); }
 }
 
 .card-header-row h2 { margin-bottom: 0; }
-
 .hint { color: var(--muted); font-size: 13px; }
 
 /* ─── MODALIDADES ─── */
@@ -481,45 +510,42 @@ button:hover { background: var(--accent2); }
 /* ─── REPORTE IMPRIMIBLE ─── */
 .reporte-print { display: none; }
 
+/* ─── PRINT ─── */
 @media print {
-  .navbar, .ticket-acciones, .btn-reporte, .dash-cards { display: none !important; }
+  /* Ocultar navegación y botones siempre */
+  .navbar,
+  .ticket-acciones,
+  .btn-reporte,
+  .dash-cards { display: none !important; }
+
+  /* Si estamos en ticket.html — mostrar solo el ticket */
+  .ticket-container {
+    display: block !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    max-width: 100% !important;
+  }
+
+  .ticket-header { background: #1a1a2e !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .ticket-folio  { background: #f5c518 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .ticket-total  { background: #1a1a2e !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  /* Si estamos en dashboard.html — mostrar solo el reporte */
   .reporte-print {
-    display: block;
+    display: block !important;
     padding: 20px;
     color: #000;
     font-family: 'Courier New', monospace;
   }
+
   .reporte-print .tabla-tickets th,
-  .reporte-print .tabla-tickets td { color: #000; border-color: #ccc; }
-  body > *:not(.reporte-print) { display: none; }
-  .reporte-print { display: block !important; }
-}
-.login-separador {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 16px;
-  font-size: 13px;
-  color: var(--muted);
-}
+  .reporte-print .tabla-tickets td { color: #000 !important; border-color: #ccc !important; }
 
-.btn-toggle {
-  width: auto;
-  padding: 4px 12px;
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--accent);
-  font-size: 13px;
-  font-weight: 600;
-  border-radius: 6px;
-}
+  /* Ocultar todo excepto ticket o reporte */
+  .cobro-layout,
+  .dash-layout,
+  .dash-main,
+  .stock-layout { display: none !important; }
 
-.btn-toggle:hover { background: var(--surface2); }
-
-.success-msg {
-  color: var(--success);
-  margin-top: 12px;
-  font-size: 13px;
-  min-height: 20px;
+  body { background: #fff !important; }
 }
