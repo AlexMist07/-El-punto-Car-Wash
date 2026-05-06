@@ -64,20 +64,22 @@
     const data = JSON.parse(localStorage.getItem('ultimo_ticket'));
 
     if (!data) {
-      window.location.href = 'cobro.html';
+      document.querySelector('.ticket-container').innerHTML = `
+        <div style="padding:40px;text-align:center;color:#1a1a2e">
+          <p>No hay ticket disponible.</p>
+          <a href="cobro.html" style="color:#f5c518">← Volver al cobro</a>
+        </div>`;
     } else {
-      document.getElementById('t-folio').textContent   = '#' + String(data.folio).padStart(4, '0');
-      document.getElementById('t-placa').textContent   = data.placa.toUpperCase();
-      document.getElementById('t-vehiculo').textContent = data.vehiculo;
+      document.getElementById('t-folio').textContent     = '#' + String(data.folio).padStart(4, '0');
+      document.getElementById('t-placa').textContent     = data.placa.toUpperCase();
+      document.getElementById('t-vehiculo').textContent  = data.vehiculo;
       document.getElementById('t-modalidad').textContent = data.modalidad;
-      document.getElementById('t-base').textContent    = '$' + parseFloat(data.precioBase).toFixed(2);
-      document.getElementById('t-total').textContent   = '$' + parseFloat(data.total).toFixed(2);
+      document.getElementById('t-base').textContent      = '$' + parseFloat(data.precioBase).toFixed(2);
+      document.getElementById('t-total').textContent     = '$' + parseFloat(data.total).toFixed(2);
 
-      // Fecha legible
       const fecha = new Date(data.fecha);
       document.getElementById('t-fecha').textContent = fecha.toLocaleString('es-MX');
 
-      // Extras
       const listaExtras = document.getElementById('t-extras-lista');
       if (data.extras && data.extras.length > 0) {
         data.extras.forEach(e => {
@@ -89,6 +91,10 @@
       } else {
         document.getElementById('ticket-extras-section').style.display = 'none';
       }
+
+      setTimeout(() => {
+        window.print();
+      }, 800);
     }
   </script>
 
