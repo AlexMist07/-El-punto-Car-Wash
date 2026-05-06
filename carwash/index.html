@@ -10,7 +10,7 @@
 
   <div class="login-card">
     <h1>🚗 El Punto Car Wash</h1>
-    <p class="subtitle">Inicia sesión para continuar</p>
+    <p class="subtitle" id="login-subtitle">Inicia sesión para continuar</p>
 
     <div class="form-group">
       <label>Correo</label>
@@ -22,24 +22,75 @@
       <input type="password" id="password" placeholder="••••••••">
     </div>
 
-    <button id="btn-login">Entrar</button>
+    <button id="btn-principal">Entrar</button>
+
+    <div class="login-separador">
+      <span>¿No tienes cuenta?</span>
+      <button id="btn-toggle" class="btn-toggle">Crear cuenta</button>
+    </div>
+
     <p id="error-msg" class="error-msg"></p>
+    <p id="success-msg" class="success-msg"></p>
   </div>
 
   <script type="module">
     import { supabase } from './js/supabaseClient.js';
 
-    document.getElementById('btn-login').addEventListener('click', async () => {
-      const email    = document.getElementById('email').value;
-      const password = document.getElementById('password').value;
-      const errMsg   = document.getElementById('error-msg');
+    let modo = 'login'; // 'login' o 'registro'
 
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const btnPrincipal = document.getElementById('btn-principal');
+    const btnToggle    = document.getElementById('btn-toggle');
+    const errMsg       = document.getElementById('error-msg');
+    const okMsg        = document.getElementById('success-msg');
+    const subtitle     = document.getElementById('login-subtitle');
 
-      if (error) {
-        errMsg.textContent = 'Correo o contraseña incorrectos';
+    // Alternar entre login y registro
+    btnToggle.addEventListener('click', () => {
+      errMsg.textContent = '';
+      okMsg.textContent  = '';
+      if (modo === 'login') {
+        modo = 'registro';
+        subtitle.textContent    = 'Crea tu cuenta';
+        btnPrincipal.textContent = 'Crear cuenta';
+        btnToggle.textContent   = 'Ya tengo cuenta';
       } else {
-        window.location.href = 'cobro.html';
+        modo = 'login';
+        subtitle.textContent    = 'Inicia sesión para continuar';
+        btnPrincipal.textContent = 'Entrar';
+        btnToggle.textContent   = 'Crear cuenta';
+      }
+    });
+
+    // Acción principal
+    btnPrincipal.addEventListener('click', async () => {
+      const email    = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      errMsg.textContent = '';
+      okMsg.textContent  = '';
+
+      if (!email || !password) {
+        errMsg.textContent = 'Ingresa correo y contraseña';
+        return;
+      }
+
+      if (modo === 'login') {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) {
+          errMsg.textContent = 'Correo o contraseña incorrectos';
+        } else {
+          window.location.href = 'cobro.html';
+        }
+      } else {
+        const { error } = await supabase.auth.signUp({ email, password });
+        if (error) {
+          errMsg.textContent = 'Error al crear cuenta: ' + error.message;
+        } else {
+          okMsg.textContent = '✅ Cuenta creada, ya puedes iniciar sesión';
+          modo = 'login';
+          subtitle.textContent     = 'Inicia sesión para continuar';
+          btnPrincipal.textContent = 'Entrar';
+          btnToggle.textContent    = 'Crear cuenta';
+        }
       }
     });
   </script>

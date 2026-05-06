@@ -494,3 +494,32 @@ button:hover { background: var(--accent2); }
   body > *:not(.reporte-print) { display: none; }
   .reporte-print { display: block !important; }
 }
+.login-separador {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.btn-toggle {
+  width: auto;
+  padding: 4px 12px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 6px;
+}
+
+.btn-toggle:hover { background: var(--surface2); }
+
+.success-msg {
+  color: var(--success);
+  margin-top: 12px;
+  font-size: 13px;
+  min-height: 20px;
+}
